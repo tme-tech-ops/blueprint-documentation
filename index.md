@@ -58,6 +58,10 @@ A typical deployment uses several plugins in concert. For example, to deploy an 
   - [Relationships](utilities-plugin/relationships.md)
   - [Workflows](utilities-plugin/workflows.md)
 
+### Visual Diagrams
+
+- **[Architecture & Flow Visuals](visuals/README.md)** -- 8 professional diagrams covering blueprint anatomy, plugin ecosystem, deployment lifecycle, node dependencies, intrinsic functions, layered deployment model, end-to-end VM flow, and relationship types
+
 ### Blueprint Examples
 
 - **[Examples Overview](examples/overview.md)** -- How the example blueprints are organized
