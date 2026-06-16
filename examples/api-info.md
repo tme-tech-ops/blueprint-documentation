@@ -159,34 +159,34 @@ Blueprint archive upload uses the `"$ORCH/api/v3.1/blueprints/<id>"` endpoint
 top-level directory** with the blueprint's main YAML at its root:
 
 ```
-CMA_WindowsServer.tar.gz
-└── CMA_WindowsServer/
-    ├── CMA_WindowsServer.yaml        <- main file (the entrypoint)
+MY_WindowsServer.tar.gz
+└── MY_WindowsServer/
+    ├── MY_WindowsServer.yaml        <- main file (the entrypoint)
     ├── infrastructure/ ...
     └── ...
 ```
 
 ```bash
-# from the directory that CONTAINS the CMA_WindowsServer/ folder:
-tar -czf /tmp/CMA_WindowsServer.tar.gz CMA_WindowsServer
-#   or:  zip -r /tmp/CMA_WindowsServer.zip CMA_WindowsServer
+# from the directory that CONTAINS the MY_WindowsServer/ folder:
+tar -czf /tmp/MY_WindowsServer.tar.gz MY_WindowsServer
+#   or:  zip -r /tmp/MY_WindowsServer.zip MY_WindowsServer
 ```
 
 **Upload.** `application_file_name` tells the orchestrator which file inside the
 archive is the entrypoint (it does not have to match the `<id>`):
 
 ```bash
-curl -sk -X PUT "$ORCH/api/v3.1/blueprints/CMA_WindowsServer" \
+curl -sk -X PUT "$ORCH/api/v3.1/blueprints/MY_WindowsServer" \
   -H "Authorization: $TOKEN" \
-  -F 'params={"application_file_name":"CMA_WindowsServer.yaml","visibility":"tenant"}' \
-  -F "blueprint_archive=@/tmp/CMA_WindowsServer.tar.gz" \
+  -F 'params={"application_file_name":"MY_WindowsServer.yaml","visibility":"tenant"}' \
+  -F "blueprint_archive=@/tmp/MY_WindowsServer.tar.gz" \
   -w "\nHTTP %{http_code}\n"                    # expect 201
 ```
 
 Parsing/validation is asynchronous. Confirm it finished cleanly:
 
 ```bash
-curl -sk "$ORCH/rest/v1/blueprints/CMA_WindowsServer" -H "Authorization: $TOKEN" \
+curl -sk "$ORCH/rest/v1/blueprints/MY_WindowsServer" -H "Authorization: $TOKEN" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('state:', d.get('state'))"
 # -> state: uploaded   (anything else -> inspect the response for an error)
 ```
@@ -202,7 +202,7 @@ A blueprint with deployments cannot be deleted (`409`) — delete those
 deployments first (section 5).
 
 ```bash
-curl -sk -X DELETE "$ORCH/api/v3.1/blueprints/CMA_WindowsServer" \
+curl -sk -X DELETE "$ORCH/api/v3.1/blueprints/MY_WindowsServer" \
   -H "Authorization: $TOKEN" -w "HTTP %{http_code}\n"   # expect 204
 ```
 
@@ -229,7 +229,7 @@ curl -sk -X POST "$ORCH/rest/v1/deployments/cma-base-01" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-        "blueprint_id": "CMA_WindowsServer",
+        "blueprint_id": "MY_WindowsServer",
         "inputs": {
           "vm_user_name": "Administrator",
           "vm_password_secret_name": "cma-vm-pw",
@@ -252,7 +252,7 @@ Put the whole body in a file and reference it with `-d @file`:
 ```bash
 cat > /tmp/deploy-fileserver.json <<'JSON'
 {
-  "blueprint_id": "CMA_File_Server",
+  "blueprint_id": "MY_File_Server",
   "inputs": {
     "imo_number": "9876543",
     "default_password_secret_name": "cma-vm-pw",
@@ -310,7 +310,7 @@ done
 ```bash
 curl -sk "$ORCH/rest/v1/deployments/cma-base-01/capabilities" \
   -H "Authorization: $TOKEN" | python3 -m json.tool
-# e.g. CMA_Base_Host_IP, Virtual_Machine_Hostname, ...
+# e.g. MY_Base_Host_IP, Virtual_Machine_Hostname, ...
 ```
 
 ### 5c. Gracefully uninstall, then delete
