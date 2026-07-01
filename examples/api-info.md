@@ -1,6 +1,6 @@
 # DAP Orchestrator API (curl) how-to
 
-A practical, copy-paste guide to driving the DAP Orchestrator with **`curl`**. 
+A practical, copy-paste guide to driving the Dell Automation Platform Orchestrator with **`curl`**. 
 It covers: getting and using an auth token; creating/updating/deleting secrets;
 uploading a blueprint; deploying it; checking status; gracefully uninstalling and deleting a deployment; 
 and reading an endpoint's available network segments and datastores.
@@ -42,7 +42,7 @@ Tokens come from the **portal** OIDC endpoint; you then send them to the
 export TOKEN=$(curl -sk -X POST "$PORTAL/rest/v1/oidc/token" \
   -d "grant_type=client_credentials" \
   -d "client_id=$CLIENT_ID" \
-  -d "client_secret=$CLIENT_SECRET" \
+  --data-urlencode "client_secret=$CLIENT_SECRET" \
   -d "org_id=$ORG_ID" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
@@ -74,12 +74,12 @@ Secrets live at `"$ORCH/rest/v1/secrets/<name>"`. A blueprint input only ever
 references a secret **by name**; the value is resolved at deploy time. Sensitive
 fields are **write-only** — a `GET` returns them masked as `***`.
 
-See `secrets-info.md` for which schema each blueprint input expects.
+**NOTE:** Required secrets are different for every blueprint, the below provides some examples for common secrets.
 
 ### 2a. Create a `password` secret (simple string value)
 
 ```bash
-curl -sk -X POST "$ORCH/rest/v1/secrets/cma-vm-pw" \
+curl -sk -X POST "$ORCH/rest/v1/secrets/vm-pw" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"type":"password","value":"<the-password>"}' \
@@ -89,7 +89,7 @@ curl -sk -X POST "$ORCH/rest/v1/secrets/cma-vm-pw" \
 ### 2b. Create a `binary_configuration` secret (image/binary download)
 
 ```bash
-curl -sk -X POST "$ORCH/rest/v1/secrets/cma-win-image" \
+curl -sk -X POST "$ORCH/rest/v1/secrets/win-image" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -111,7 +111,7 @@ curl -sk -X POST "$ORCH/rest/v1/secrets/cma-win-image" \
 ### 2c. Create a `basic_auth_credentials` secret (username + password)
 
 ```bash
-curl -sk -X POST "$ORCH/rest/v1/secrets/cma-smtp-cred" \
+curl -sk -X POST "$ORCH/rest/v1/secrets/app-cred" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"type":"basic_auth_credentials","value":{"username":"<user>","password":"<password>"}}' \
@@ -121,7 +121,7 @@ curl -sk -X POST "$ORCH/rest/v1/secrets/cma-smtp-cred" \
 ### 2d. Read a secret (value masked)
 
 ```bash
-curl -sk "$ORCH/rest/v1/secrets/cma-win-image" -H "Authorization: $TOKEN" \
+curl -sk "$ORCH/rest/v1/secrets/win-image" -H "Authorization: $TOKEN" \
   | python3 -m json.tool
 # -> "binary_image_access_token": "***"   (sensitive fields are never returned)
 ```
@@ -133,7 +133,7 @@ re-sending the rest. Handy for bumping `binary_image_version` to force the
 endpoint to re-download an image whose contents changed:
 
 ```bash
-curl -sk -X PATCH "$ORCH/rest/v1/secrets/cma-win-image" \
+curl -sk -X PATCH "$ORCH/rest/v1/secrets/win-image" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"value":{"binary_image_version":"1.0.4"}}' \
@@ -144,7 +144,7 @@ curl -sk -X PATCH "$ORCH/rest/v1/secrets/cma-win-image" \
 ### 2f. Delete a secret
 
 ```bash
-curl -sk -X DELETE "$ORCH/rest/v1/secrets/cma-win-image" \
+curl -sk -X DELETE "$ORCH/rest/v1/secrets/win-image" \
   -H "Authorization: $TOKEN" -w "HTTP %{http_code}\n"   # expect 204
 ```
 
@@ -220,21 +220,21 @@ Creating a deployment both creates **and installs** it. Use
   - **standalone VM blueprints** bind to the **endpoint**:
     `ece-<endpoint_service_tag>`
   - **layered app blueprints** bind to the **base deployment id**:
-    e.g. `cma-base-01`
+    e.g. `vm-base-01`
 
 ### 4a. Deploy with an inline payload
 
 ```bash
-curl -sk -X POST "$ORCH/rest/v1/deployments/cma-base-01" \
+curl -sk -X POST "$ORCH/rest/v1/deployments/vm-base-01" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
         "blueprint_id": "MY_WindowsServer",
         "inputs": {
           "vm_user_name": "Administrator",
-          "vm_password_secret_name": "cma-vm-pw",
-          "artifact_configuration_secret_name": "cma-win-image",
-          "hostname": "cma-base-01",
+          "vm_password_secret_name": "vm-pw",
+          "artifact_configuration_secret_name": "win-image",
+          "hostname": "vm-base-01",
           "disk": "/DataStore0",
           "segment_name": "bridge0",
           "dhcp": true,
@@ -255,14 +255,14 @@ cat > /tmp/deploy-fileserver.json <<'JSON'
   "blueprint_id": "MY_File_Server",
   "inputs": {
     "imo_number": "9876543",
-    "default_password_secret_name": "cma-vm-pw",
+    "default_password_secret_name": "vm-pw",
     "quota_multiplier": 1.0
   },
-  "tags": [ { "key": "csys-obj-parent", "value": "cma-base-01" } ]
+  "tags": [ { "key": "csys-obj-parent", "value": "vm-base-01" } ]
 }
 JSON
 
-curl -sk -X POST "$ORCH/rest/v1/deployments/cma-fileserver-01" \
+curl -sk -X POST "$ORCH/rest/v1/deployments/fileserver-01" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
   -d @/tmp/deploy-fileserver.json \
@@ -280,7 +280,7 @@ curl -sk -X POST "$ORCH/rest/v1/deployments/cma-fileserver-01" \
 ### 5a. Check status
 
 ```bash
-curl -sk "$ORCH/rest/v1/deployments/cma-base-01" -H "Authorization: $TOKEN" \
+curl -sk "$ORCH/rest/v1/deployments/vm-base-01" -H "Authorization: $TOKEN" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); \
 print('state:', d.get('state'), '| status:', d.get('deployment_status'), '| error:', d.get('error'))"
 ```
@@ -299,7 +299,7 @@ Poll until it settles:
 
 ```bash
 while true; do
-  s=$(curl -sk "$ORCH/rest/v1/deployments/cma-base-01" -H "Authorization: $TOKEN" \
+  s=$(curl -sk "$ORCH/rest/v1/deployments/vm-base-01" -H "Authorization: $TOKEN" \
       | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state'), d.get('deployment_status'))")
   echo "$s"; echo "$s" | grep -qE 'completed|failed' && break; sleep 30
 done
@@ -308,7 +308,7 @@ done
 ### 5b. Read the deployment outputs (capabilities)
 
 ```bash
-curl -sk "$ORCH/rest/v1/deployments/cma-base-01/capabilities" \
+curl -sk "$ORCH/rest/v1/deployments/vm-base-01/capabilities" \
   -H "Authorization: $TOKEN" | python3 -m json.tool
 # e.g. MY_Base_Host_IP, Virtual_Machine_Hostname, ...
 ```
@@ -323,24 +323,24 @@ VM(s). Deleting a deployment that still has live nodes is rejected.
 curl -sk -X POST "$ORCH/rest/v1/executions" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"deployment_id":"cma-base-01","workflow_id":"uninstall"}' \
+  -d '{"deployment_id":"vm-base-01","workflow_id":"uninstall"}' \
   -w "\nHTTP %{http_code}\n"
 
 # 2) wait for it to finish (state=completed, deployment_status=uninstalled)
 while true; do
-  s=$(curl -sk "$ORCH/rest/v1/deployments/cma-base-01" -H "Authorization: $TOKEN" \
+  s=$(curl -sk "$ORCH/rest/v1/deployments/vm-base-01" -H "Authorization: $TOKEN" \
       | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state'), d.get('deployment_status'))")
   echo "$s"; echo "$s" | grep -qiE 'completed uninstalled|failed' && break; sleep 20
 done
 
 # 3) delete the (now-uninstalled) deployment record
-curl -sk -X DELETE "$ORCH/rest/v1/deployments/cma-base-01" \
+curl -sk -X DELETE "$ORCH/rest/v1/deployments/vm-base-01" \
   -H "Authorization: $TOKEN" -w "HTTP %{http_code}\n"     # expect 200/202/204
 ```
 
 > **Order matters for layered apps:** uninstall+delete the layered children
-> (e.g. `cma-fileserver-01`, `cma-v2ps-01`) **before** their base
-> (`cma-base-01`). Don't force-delete — that skips uninstall and can orphan VMs
+> (e.g. `fileserver-01`, `app-01`) **before** their base
+> (`vm-base-01`). Don't force-delete — that skips uninstall and can orphan VMs
 > that have no API to remove.
 
 ---
