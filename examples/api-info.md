@@ -12,6 +12,8 @@ All examples use shell variables defined once below — **fill in your own value
 
 ## 0. Set up your variables
 
+> **Using Windows?** see bottom section of this guide for `Windows PowerShell` commands.
+
 ```bash
 # --- Orchestrator + portal endpoints (no trailing slash) ---
 export ORCH="https://orchestrator.<env>.edge.tme"   # orchestrator API host
@@ -384,6 +386,52 @@ peripherals, and storage controllers/disks if you need them — inspect the full
 JSON with `curl -sk "$ORCH/rest/v1/endpoints/$EP_ID" -H "Authorization: $TOKEN" | python3 -m json.tool`.
 
 ---
+
+## Windows PowerShell commands
+
+Windows ships with curl and PowerShell but not jq or python3. All steps below
+are equivalent to the bash commands in the main guide, using only tools built
+into Windows PowerShell 5.1+ (no installs required).
+
+**Step-1 - Set variables (run once per session):**
+
+```bash
+    $env:ORG_ID             = "<your-org-id>"
+    $env:ORCH_CLIENT_ID     = "<orchestrator-client-id>"
+    $env:ORCH_CLIENT_SECRET = "<orchestrator-client-secret>"
+    $env:PORTAL_FQDN        = "<portal-fqdn>"
+    $env:ORCH_FQDN          = "<orchestrator-fqdn>"
+```
+
+**Step-2 - Generate a token using PowerShell + built in curl.exe**
+
+```bash
+    $ORCH_ACCESS_TOKEN = (curl.exe -sk -X POST `
+      "https://$env:PORTAL_FQDN/rest/v1/oidc/token" `
+      --header "Content-Type: application/x-www-form-urlencoded" `
+      --header "Accept: text/plain" `
+      --data-urlencode "client_id=$env:ORCH_CLIENT_ID" `
+      --data-urlencode "client_secret=$env:ORCH_CLIENT_SECRET" `
+      --data-urlencode "grant_type=client_credentials" `
+      --data-urlencode "org_id=$env:ORG_ID" `
+      | ConvertFrom-Json).access_token
+```
+# Verify:
+```bash
+    Write-Output $ORCH_ACCESS_TOKEN
+```
+
+**Step-3 - Run any other API commands using the same curl.exe format on PowerShell**
+
+> **Example:** check the entitlements/licenses on the Orchestrator
+
+```bash
+    curl.exe -sk -X GET `
+      "https://$env:ORCH_FQDN/rest/v1/entitlements" `
+      -H "Authorization: $ORCH_ACCESS_TOKEN" `
+      -H "Accept: application/json" `
+      | ConvertFrom-Json | ConvertTo-Json -Depth 10
+```
 
 ## Endpoint / path quick reference
 
